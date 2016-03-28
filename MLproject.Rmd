@@ -1,0 +1,100 @@
+---
+title: "A Project on Practical Machine Learning"
+output: html_document
+---
+
+## Abstract
+
+The project analysis corresponds to applying different Machine Learning algorithms to the Weight Lifting Exercises (WLE) Dataset (please see  http://groupware.les.inf.puc-rio.br/har). Six persons (Carlitos, Pedro,    Adelmo,  Charles,  Eurico and Jeremy) were asked to perform one set of ten repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions, identified as classes A, B, C, D and E. All classes except A are designated as   common mistakes in this weight lifting exercise. So, onley class A correspnds to the correct way of the exercise. A number of sensors were used to collect data about the execution of the exercise. The purpose of this project is to establish an effective predictive algorithm where the sensor measures serve as predictors and the outcome is the corresponding class from A to E.
+
+The analysis uses regression tree and random forest prediction algorithm after some data cleaning. The  analysis confirm that the model provided by the random forest algorithm provides almost perfect prediction accuracy.
+
+##Data exploration and cleaning
+
+```{r,cache=T}
+setwd("/home/mohammad/Desktop/machine learning/project1")
+Trn=read.table("pml-training.csv",sep = ",", na.strings = c("NA","#DIV/0!"),header = TRUE)
+b1=dim(Trn);print(b1)
+Tst=read.table("pml-testing.csv",sep = ",", na.strings = c("NA","#DIV/0!"),header = TRUE)
+b2=dim(Tst);print(b2)
+```
+
+####Cleaning training dataset with sub partitions
+
+```{r,cache=T}
+miss = is.na(Trn);c=.95*b1[1] #removing column with more than 95% missing values
+remov = which(colSums(miss) > c);Trn = Trn[, -remov]
+Trn=Trn[,-(1:7)]#First 7 column has nothing to do with classification
+names(Trn)
+dim(Trn);set.seed(1);library(caret)
+inTrain <- createDataPartition(y=Trn$classe, p=0.75, list=FALSE)
+training <- Trn[inTrain,];dim(training)
+testing <- Trn[-inTrain,];dim(testing)
+```
+
+####Cleaning testing dataset
+
+```{r,cache=T}
+miss = is.na(Tst);c=.95*b2[1] #removing column with more than 95% missing values
+remov = which(colSums(miss) > c);Tst = Tst[, -remov]
+Tst=Tst[,-(1:7)]#First 7 column has nothing to do with classification
+dim(Tst)
+```
+##Model Building
+
+####Regression Tree
+
+```{r,cache=T}
+library(caret);library(rattle)
+mfit1<-train(classe~.,method="rpart",data=training)
+fancyRpartPlot(mfit1$finalModel)
+confusionMatrix(testing$classe, predict(mfit1, newdata=testing))
+```
+
+####Random Forest
+
+```{r,cache=T,message=FALSE}
+library(caret);library(randomForest)
+mfit2 = randomForest(classe~., data=training, ntree = 100)
+pT = predict(mfit2, newdata = testing)
+confusionMatrix(pT, testing$classe)
+Accuracy=sum(pT==testing$classe)/dim(testing)[1];print(Accuracy)
+```
+
+The model yielded a 99.6% prediction accuracy.
+
+##Cross validation
+
+We use cross validation method in random forest. 
+
+```{r,cache=T, message=F}
+#mfit3=train(classe~.,data=training,method="rf",trControl=trainControl(method = "cv", number = 4,allowParallel=T))
+#It has been run in parallel and save to mfit3.rda
+load(file = "mfit3.rda")
+mfit3
+pred1=predict(mfit3,testing);table(pred1,testing$classe)
+Accuracy=sum(pred1==testing$classe)/dim(testing)[1];print(Accuracy)
+```
+
+The model yielded a 99.5% prediction accuracy. 
+
+## Out of Sample Error and choice
+
+The out of sample error is defined as the error rate when we apply the classification model on a new data set. Therefore, it was just the error rate from the 4-fold cross validation samples. So, we expect the out of sample error for other testing sets would be 0.5%. Also, our choice would be "Random Forest" classification model as it gives almost perfect classification.
+
+## Prediction on testing data
+
+```{r,message=F}
+library(caret);library(randomForest)
+predict(mfit1,Tst)#For Regression Tree
+predict(mfit2,Tst)#For Random Forest
+predict(mfit3,Tst)#For Random Forest with cross validation
+```
+
+##References
+
+1. Relevant information collected from http://groupware.les.inf.puc-rio.br/har.
+
+2.  G. James, D. Witten, T. Hastie, R. Tibshirani. An Introduction to Statistical Learning with Applications in R, Springer Verlag (2013). ISBN: 978-1-4614-7138-7.
+
+3. T. Hastie, R. Tibshirani, J. Friedman. The Elements of Statistical Learning ,  Springer Verlag (2009). ISBN: 978-0-3878-4857-0.
